@@ -1,0 +1,104 @@
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Tuple
+import uvicorn
+import time
+import textwrap
+import faiss
+import pickle
+import numpy as np
+from llama_cpp import Llama
+from sentence_transformers import SentenceTransformer
+
+# === CONFIG ===
+llama_model_path = "/Users/vuk/projects/llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
+faiss_index_path = "rag_cache/faiss.index"
+metadata_path = "rag_cache/metadata.pkl"
+
+MAX_TOKENS = 512
+
+# === LOAD MODELS ===
+embedder = SentenceTransformer('all-mpnet-base-v2')
+llm = Llama(model_path=llama_model_path, n_ctx=2048, verbose=False)
+index = faiss.read_index(faiss_index_path)
+with open(metadata_path, 'rb') as f:
+    metadata = pickle.load(f)
+chunks = [entry.get("text", "") for entry in metadata]  # Optional fallback
+
+# === APP SETUP ===
+app = FastAPI()
+
+# ✅ CORS Middleware for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Replace with specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class QuestionRequest(BaseModel):
+    question: str
+
+class QuestionResponse(BaseModel):
+    answer: str
+    sources: List[Tuple[str, str]]
+
+def wrap_text(text, width=99):
+    return "\n".join(textwrap.wrap(text, width=width))
+
+def ask_llm(prompt, max_tokens):
+    start = time.time()
+    output = llm(prompt, max_tokens=max_tokens, temperature=0.7, top_p=0.95, stop=["</s>"])
+    end = time.time()
+    answer = output["choices"][0]["text"].strip()
+    latency = round(end - start, 3)
+    return answer, latency
+
+def find_youtube_timestamp_exact_progressive(link, chunk):
+    # Stub for now — return input and dummy values
+    return link, "00:00", chunk[:200], 1.0
+
+@app.post("/ask", response_model=QuestionResponse)
+def ask_question(request: QuestionRequest):
+    q = request.question.strip()
+    if len(q) > 1000:
+        raise HTTPException(status_code=400, detail="Question too long. Limit to 1000 characters.")
+
+    q_embedding = embedder.encode([q])
+    D, I = index.search(q_embedding, k=3)
+    context_similarity_threshold = 1000
+    use_context = D[0][0] < context_similarity_threshold
+
+    retrieved_chunks = []
+    source_entries = []
+    seen_files = set()
+
+    if use_context:
+        for i in I[0]:
+            chunk_text = wrap_text(chunks[i])
+            entry = metadata[i]
+            file = entry['file']
+            meta = entry.get('metadata', {})
+            link = meta.get("Video URL", "N/A")
+
+            if file not in seen_files:
+                yt_link, timestamp, matched_text, score = find_youtube_timestamp_exact_progressive(link, chunks[i])
+                source_entries.append((yt_link, chunk_text))
+                seen_files.add(file)
+
+            retrieved_chunks.append(chunks[i])
+
+        retrieved_context = "\n".join(retrieved_chunks)
+        prompt = f"""[INST] Use the context below to answer the question.\n\nContext:\n{retrieved_context}\n\nQuestion: {q}\n[/INST]"""
+    else:
+        prompt = f"[INST] {q} [/INST]"
+        source_entries = [("No video link", "No reference text available.")]
+
+    answer, _ = ask_llm(prompt, max_tokens=MAX_TOKENS)
+    return QuestionResponse(answer=answer, sources=source_entries)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+

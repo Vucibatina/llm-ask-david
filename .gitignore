@@ -1,0 +1,17 @@
+# Skip model files
+llm_models/
+
+# Skip saved Q&A logs
+data/qanda/
+
+# Python junk
+__pycache__/
+*.pyc
+
+# VSCode or IDE stuff
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+

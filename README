@@ -1,0 +1,13 @@
+vuk@Mac david_fast_api % source venv/bin/activate
+
+To access from browser locally : file:///Users/vuk/projects/david_fast_api/ask_david.html
+
+pip install fastapi
+pip install sentence-transformers 
+
+To run uvicorn: 
+ uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000
+ /Users/vuk/envs/rag_env/bin/uvicorn   rag_fastapi_server:app --host 0.0.0.0 --port 8000
+
+For public access to site ngrok http 8000    
+

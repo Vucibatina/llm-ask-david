@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask David</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      font-size: 1rem;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+    #timer {
+      font-style: italic;
+      color: #555;
+      margin-top: 10px;
+    }
+    .response {
+      background: #f2f2f2;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 8px;
+    }
+    .sources {
+      margin-top: 20px;
+    }
+    .source {
+      margin-bottom: 15px;
+      padding: 15px;
+      border-left: 5px solid #007acc;
+      background-color: #f9f9f9;
+    }
+    .link {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ask David</h1>
+  <p style="text-align: center; font-size: 1rem; color: #444; margin-top: -10px; margin-bottom: 30px;">
+    This page is a ChatGPT-like assistant trained on all of David Snyder's published and free YouTube videos. 
+    Ask any question related to David's teachings — this page will answer in David's style and include links to the 
+    exact video moments where the answers came from.
+  </p>
+  <textarea id="question" placeholder="Enter your question here..."></textarea>
+  <button onclick="askDavid()">Ask</button>
+  <div id="timer"></div>
+
+  <div id="response" class="response" style="display: none;"></div>
+  <div id="sources" class="sources"></div>
+
+  <script>
+    let timerInterval;
+    let secondsElapsed = 0;
+
+    function startTimer() {
+      const timerDiv = document.getElementById('timer');
+      secondsElapsed = 0;
+      timerDiv.innerText = "⏳ Waiting... 0s";
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        timerDiv.innerText = `⏳ Working on producing your answer... ${secondsElapsed}s`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      document.getElementById('timer').innerText = "";
+    }
+
+    async function askDavid() {
+      const question = document.getElementById('question').value;
+      const responseDiv = document.getElementById('response');
+      const sourcesDiv = document.getElementById('sources');
+
+      responseDiv.style.display = 'none';
+      responseDiv.innerHTML = "";
+      sourcesDiv.innerHTML = "";
+
+      if (!question.trim()) return alert("Please enter a question.");
+
+      startTimer();
+
+      const res = await fetch("http://localhost:8000/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ question })
+      });
+
+      stopTimer();
+
+      if (!res.ok) {
+        const error = await res.text();
+        alert("Error: " + error);
+        return;
+      }
+
+      const data = await res.json();
+      responseDiv.style.display = 'block';
+      responseDiv.innerHTML = `<strong>Answer:</strong><br>${data.answer}`;
+
+      data.sources.forEach(([link, snippet]) => {
+        const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
+        const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
+
+        const sourceEl = document.createElement('div');
+        sourceEl.classList.add('source');
+        sourceEl.innerHTML = `
+          <div class='link'><a href='${link}' target='_blank'>${link}</a></div>
+          <div>${displaySnippet}</div>
+        `;
+        sourcesDiv.appendChild(sourceEl);
+      });
+    }
+  </script>
+  <footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
+    Produced by <a href="mailto:vucibatina@hotmail.com" style="color: #007acc; text-decoration: none;">Vuk Radovic</a>
+  </footer>
+
+</body>
+</html>
+

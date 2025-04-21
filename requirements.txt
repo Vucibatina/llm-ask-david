@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+filelock
+faiss-cpu
+sentence-transformers
+llama-cpp-python
+tabulate
+youtube-transcript-api
+fuzzywuzzy
+python-Levenshtein
+jupyter
+notebook
+
+
