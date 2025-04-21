@@ -93,7 +93,36 @@ pip install fastapi uvicorn sentence-transformers faiss-cpu llama-cpp-python you
 
 ---
 
+## 📦 Manual Setup for Large Files
+
+Due to GitHub's 100MB file size limit, this repo does **not** include large binary files like the LLaMA model or FAISS index.
+
+After cloning the repository, you must manually add these files:
+
+- `llm_models/llama-2-7b-chat-hf-q4_k_m.gguf`
+- `rag_cache/faiss.index` (or `index.faiss` depending on your setup)
+
+You can:
+- Transfer them via **SSH** or **scp**
+- Use a shared folder like Dropbox, Google Drive, or external storage
+- Or download from your own private hosting if you’ve set that up
+
+These files are required to run the application locally.
+
+---
+
 ## ✉️ Author
 
 **Produced by [Vuk Radovic](mailto:vucibatina@hotmail.com)**  
 Built with ❤️ to make David Snyder’s material searchable, accessible, and useful in everyday life.
+---
+
+## 🌐 How to Access the Web Interface
+
+To use the app through your browser, open this file locally:
+
+```
+static/ask_david.html
+```
+
+This HTML file provides a simple frontend for interacting with the backend API. You must have the FastAPI server (`server.py`) running locally before using the interface.
