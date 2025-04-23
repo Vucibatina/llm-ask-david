@@ -35,6 +35,7 @@
       padding: 20px;
       margin-top: 20px;
       border-radius: 8px;
+      white-space: pre-wrap;
     }
     .sources {
       margin-top: 20px;
@@ -83,6 +84,22 @@
       document.getElementById('timer').innerText = "";
     }
 
+    function formatAnswer1(text) {
+      // Add line breaks before numbered bullets
+      return text
+        .replace(/(\d+\.)/g, '\n$1')  // put line break before each 1. 2. 3. etc.
+        .replace(/\n+/g, '\n')        // avoid double newlines
+        .trim();
+    }
+
+    function formatAnswer(text) {
+      // Add double line breaks before numbered bullets for spacing
+      return text
+        .replace(/(\d+\.)/g, '\n\n$1')  // Two line breaks before 1., 2., 3., etc.
+        .replace(/\n{3,}/g, '\n\n')     // Clean up extra newlines if any
+        .trim();
+    }
+
     async function askDavid() {
       const question = document.getElementById('question').value;
       const responseDiv = document.getElementById('response');
@@ -114,7 +131,15 @@
 
       const data = await res.json();
       responseDiv.style.display = 'block';
-      responseDiv.innerHTML = `<strong>Answer:</strong><br>${data.answer}`;
+      responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
+
+      if (data.sources.length > 0) {
+        const heading = document.createElement('h3');
+        heading.innerText = "RESOURCES:";
+        heading.style.marginTop = "30px";
+        heading.style.color = "#007acc";
+        sourcesDiv.appendChild(heading);
+      }
 
       data.sources.forEach(([link, snippet]) => {
         const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
@@ -130,10 +155,10 @@
       });
     }
   </script>
+
   <footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
     Produced by <a href="mailto:vucibatina@hotmail.com" style="color: #007acc; text-decoration: none;">Vuk Radovic</a>
   </footer>
-
 </body>
 </html>
 
