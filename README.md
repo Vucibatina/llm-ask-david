@@ -122,6 +122,14 @@ their videos can be pulled and transcribed.  Here is the example on how to run:
 
 ---
 
+## Running a RAG Creation
+
+Creating a RAG is necessary for the process to run.  Files are either copied into rag_cache
+directory or generated.  In case you want to generate it, use the below command to do it
+`python build_rag.py --data_dir "/Users/vuk/projects/ask_david_clean/data/DavidSnyder" --model_path "/Users/vuk/projects/llm_models/llama-2-7b-chat-hf-q4_k_m.gguf" --save_dir "rag_cache"`
+
+--
+
 ## ✉️ Author
 
 **Produced by [Vuk Radovic](mailto:vucibatina@hotmail.com)**  
