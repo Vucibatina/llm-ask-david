@@ -111,6 +111,17 @@ These files are required to run the application locally.
 
 ---
 
+## Running a youtube video files transcriber
+
+Big part of the data training pipeline is having transcribed video data pulled
+from youtube.  To be able to do this, here is how to run the transcriber where you
+will need to specifiy the target directory and youtube creator name so that all
+their videos can be pulled and transcribed.  Here is the example on how to run:
+
+`python transcript_loader.py --path "data/DavidSnyder" --username "DavidSnyderNLP"`
+
+---
+
 ## ✉️ Author
 
 **Produced by [Vuk Radovic](mailto:vucibatina@hotmail.com)**  

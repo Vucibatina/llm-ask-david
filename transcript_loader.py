@@ -1,5 +1,6 @@
 import os 
 import sys
+import time
 import argparse
 from youtube_transcript_api import YouTubeTranscriptApi
 from googleapiclient.discovery import build
@@ -339,6 +340,7 @@ def main():
     parser.add_argument('--path', '-p', type=str, required=True, help='Directory path where transcripts will be saved')
     parser.add_argument('--username', '-u', type=str, required=True, help='YouTube channel username')
     
+    SLEEP_TIME = 1
     # Parse arguments
     args = parser.parse_args()
     
@@ -369,18 +371,31 @@ def main():
     
     master_transcript = ''
     transcribeable = 0
-    
+
+    # Before starting to loop over videos, load already transcribed video IDs
+    already_transcribed_ids = set()
+    for filename in os.listdir(transcript_folder):
+        if filename.endswith('.txt'):
+            video_id = filename[:-4]  # Remove the '.txt' extension
+            already_transcribed_ids.add(video_id)
+
     # Print the video titles and URLs
     for video in videos:
         video_title = video['snippet']['title']
         video_url = f"https://www.youtube.com/watch?v={video['id']['videoId']}"
         video_id = video['id']['videoId']
         
+        # Check if already transcribed
+        if video_id in already_transcribed_ids:
+            print(f"Video {video_id} already transcribed and saved. Skipping.")
+            continue  # Skip this video
+
         print(f"Title: {video_title}")
         print(f"ID: {video_id}")
         print(f"URL: {video_url}")
         
         full_transcript_raw = get_transcript(video_id)
+        time.sleep(SLEEP_TIME)
         full_transcript = format_text_preserving(full_transcript_raw)
         
         # Using video ID for filename
