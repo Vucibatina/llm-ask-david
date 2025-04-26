@@ -20,9 +20,12 @@ from fastapi.staticfiles import StaticFiles
 
 
 # === CONFIG ===
+initial_rag = "rag_cache"
+chatgpt_rag = "rag_cache_chatgpt"
+antropic_rag = "rag_cache_antropic"
 llama_model_path = "llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
-faiss_index_path = "rag_cache/faiss.index"
-metadata_path = "rag_cache/metadata.pkl"
+faiss_index_path = initial_rag + "/faiss.index"
+metadata_path = initial_rag + "/metadata.pkl"
 data_dir = "data/DavidSnyder"
 q_and_a_dir = "data/qanda"
 
@@ -30,7 +33,29 @@ MAX_TOKENS = 512
 
 # === LOAD MODELS ===
 embedder = SentenceTransformer('all-mpnet-base-v2')
-llm = Llama(model_path=llama_model_path, n_ctx=2048, verbose=False)
+
+# === CHECK GPU ===
+def is_gpu_available():
+    return os.path.exists('/dev/nvidia0') or os.getenv('CUDA_VISIBLE_DEVICES') not in (None, '', 'NoDevFiles')
+
+if is_gpu_available():
+    n_gpu_layers = -1
+    print("🚀 GPU detected: using GPU acceleration (n_gpu_layers = -1)")
+else:
+    n_gpu_layers = 0
+    print("🖥️ No GPU detected: using CPU only (n_threads = 8)")
+
+llm = Llama(
+    model_path=llama_model_path,
+    n_ctx=2048, # increase to 4096 for bigger context window
+    n_threads=8,
+    n_gpu_layers=n_gpu_layers,
+    verbose=False
+)
+
+# OLD STYLE NO GPU 
+# llm = Llama(model_path=llama_model_path, n_ctx=2048, verbose=False)
+
 index = faiss.read_index(faiss_index_path)
 
 # Load documents and rebuild chunks list
@@ -129,7 +154,6 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
 
     return "No match found at any length.", None, "", 0.0
 
-
 @app.post("/ask", response_model=QuestionResponse)
 def ask_question(request: QuestionRequest):
     q = request.question.strip()
@@ -137,6 +161,9 @@ def ask_question(request: QuestionRequest):
         raise HTTPException(status_code=400, detail="Question too long. Limit to 1000 characters.")
 
     q_embedding = embedder.encode([q])
+    # Ensure the embedding is in the correct format for FAISS
+    q_embedding = q_embedding.astype(np.float32)
+    
     D, I = index.search(q_embedding, k=3)
     context_similarity_threshold = 1000
     use_context = D[0][0] < context_similarity_threshold
