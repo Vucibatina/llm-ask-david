@@ -196,7 +196,12 @@ def ask_question(request: QuestionRequest):
         source_entries = [("No video link", "No reference text available.")]
         retrieved_chunks = []
 
+    # ==== Start timing model answering ====
+    start_time = time.time()
     answer, _ = ask_llm(prompt, max_tokens=MAX_TOKENS)
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"⏱️ Answer generated in {duration:.2f} seconds.")
 
     # === Save to file if enough disk space ===
     try:
@@ -208,7 +213,8 @@ def ask_question(request: QuestionRequest):
                 "question": q,
                 "answer": answer,
                 "references": source_entries,
-                "chunks": retrieved_chunks
+                "chunks": retrieved_chunks,
+                "latency": duration
             }
             file_path = os.path.join(q_and_a_dir, f"{timestamp}.json")
             with open(file_path, "w", encoding="utf-8") as f:
