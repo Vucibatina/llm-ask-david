@@ -25,7 +25,10 @@ from fastapi.staticfiles import StaticFiles
 initial_rag = "rag_cache"
 chatgpt_rag = "rag_cache_chatgpt"
 antropic_rag = "rag_cache_antropic"
+
 llama_model_path = "llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
+mistral_model_path ="llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+
 faiss_index_path = initial_rag + "/faiss.index"
 metadata_path = initial_rag + "/metadata.pkl"
 data_dir = "data/DavidSnyder"
@@ -58,7 +61,7 @@ else:
     print("🖥️ No GPU detected: using CPU only (n_threads = 8)")
 
 llm = Llama(
-    model_path=llama_model_path,
+    model_path=mistral_model_path,
     n_ctx=2048, # increase to 4096 for bigger context window
     n_threads=14,
     n_gpu_layers=n_gpu_layers,
