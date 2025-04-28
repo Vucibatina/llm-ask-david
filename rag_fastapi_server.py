@@ -38,11 +38,18 @@ embedder = SentenceTransformer('all-mpnet-base-v2')
 
 # === CHECK GPU ===
 def is_gpu_available():
-    # Running on MAC:
-    return platform.system() == "Darwin"
-    # Running on EC2:
-    # return os.path.exists('/dev/nvidia0') or os.getenv('CUDA_VISIBLE_DEVICES') not in (None, '', 'NoDevFiles')
-
+    system = platform.system()
+    
+    if system == "Darwin":
+        # On Mac, assume Metal GPU is available (you built llama.cpp with Metal)
+        return True
+    elif system == "Linux":
+        # On Linux/EC2, check for NVIDIA GPU presence
+        return os.path.exists('/dev/nvidia0') or os.getenv('CUDA_VISIBLE_DEVICES') not in (None, '', 'NoDevFiles')
+    else:
+        # Windows or unknown system
+        return False
+    
 if is_gpu_available():
     n_gpu_layers = -1
     print("🚀 GPU detected: using GPU acceleration (n_gpu_layers = -1)")
