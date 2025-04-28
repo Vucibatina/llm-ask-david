@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 from pydantic import BaseModel
 from typing import List, Tuple
 import uvicorn
@@ -14,7 +16,7 @@ from sentence_transformers import SentenceTransformer
 import re
 import json
 import shutil
-
+import platform
 from youtube_transcript_api import YouTubeTranscriptApi
 from fastapi.staticfiles import StaticFiles
 
@@ -36,7 +38,10 @@ embedder = SentenceTransformer('all-mpnet-base-v2')
 
 # === CHECK GPU ===
 def is_gpu_available():
-    return os.path.exists('/dev/nvidia0') or os.getenv('CUDA_VISIBLE_DEVICES') not in (None, '', 'NoDevFiles')
+    # Running on MAC:
+    return platform.system() == "Darwin"
+    # Running on EC2:
+    # return os.path.exists('/dev/nvidia0') or os.getenv('CUDA_VISIBLE_DEVICES') not in (None, '', 'NoDevFiles')
 
 if is_gpu_available():
     n_gpu_layers = -1
@@ -48,7 +53,7 @@ else:
 llm = Llama(
     model_path=llama_model_path,
     n_ctx=2048, # increase to 4096 for bigger context window
-    n_threads=8,
+    n_threads=14,
     n_gpu_layers=n_gpu_layers,
     verbose=False
 )
