@@ -107,6 +107,12 @@ You can:
 - Use a shared folder like Dropbox, Google Drive, or external storage
 - Or download from your own private hosting if you’ve set that up
 
+Example of scp commands:
+`scp -i ~/Downloads/g4-gpu-ask-david-2nd.pem /Users/vuk/projects/ask_david_clean/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf ubuntu@3.92.15.44:/home/ubuntu/llm-ask-david/llm_models/`
+`scp /Users/vuk/projects/ask_david_clean/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf g4-gpu-ask-david-2nd:/home/ubuntu/llm-ask-david/llm_models/`
+`scp /Users/vuk/projects/ask_david_clean/data/DavidSnyder/*.txt g4-gpu-ask-david-2nd:/home/ubuntu/llm-ask-david/data/DavidSnyder/`
+`scp /Users/vuk/projects/ask_david_clean/rag_cache/*  g4-gpu-ask-david-2nd:/home/ubuntu/llm-ask-david/rag_cache/`
+
 These files are required to run the application locally.
 
 ---
