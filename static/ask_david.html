@@ -155,14 +155,16 @@
       sourcesDiv.appendChild(heading);
     }
 
-    data.sources.forEach(([link, snippet]) => {
+    data.sources.forEach(([link, snippet, score]) => {
       const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
       const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
 
       const sourceEl = document.createElement('div');
       sourceEl.classList.add('source');
       sourceEl.innerHTML = `
-        <div class='link'><a href='${link}' target='_blank'>${link}</a></div>
+        <div class='link'>
+          <a href='${link}' target='_blank'>${link}</a> (score: ${score.toFixed(2)})
+        </div>
         <div>${displaySnippet}</div>
       `;
       sourcesDiv.appendChild(sourceEl);

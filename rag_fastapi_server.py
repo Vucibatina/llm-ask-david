@@ -109,7 +109,7 @@ class QuestionRequest(BaseModel):
 
 class QuestionResponse(BaseModel):
     answer: str
-    sources: List[Tuple[str, str]]
+    sources: List[Tuple[str, str, float]]
 
 def wrap_text(text, width=99):
     return "\n".join(textwrap.wrap(text, width=width))
@@ -189,7 +189,7 @@ def ask_question(request: QuestionRequest):
     seen_files = set()
 
     if use_context:
-        for i in I[0]:
+        for idx, i in enumerate(I[0]):
             chunk_text = chunks[i]
 
             entry = metadata[i]
@@ -200,7 +200,7 @@ def ask_question(request: QuestionRequest):
             updated_link, timestamp, matched_text, score = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
 
             if file not in seen_files:
-                source_entries.append((updated_link, matched_text))
+                source_entries.append((updated_link, matched_text, D[0][idx]))
                 seen_files.add(file)
 
             retrieved_chunks.append(chunk_text)
