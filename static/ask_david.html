@@ -162,10 +162,11 @@
       const sourceEl = document.createElement('div');
       sourceEl.classList.add('source');
       sourceEl.innerHTML = `
-        <div class='link'>
-          <a href='${link}' target='_blank'>${link}</a> (score: ${score.toFixed(2)})
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
+          <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
         </div>
-        <div>${displaySnippet}</div>
+        <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>
       `;
       sourcesDiv.appendChild(sourceEl);
     });
