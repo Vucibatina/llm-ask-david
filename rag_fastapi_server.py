@@ -172,6 +172,7 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
 @app.post("/ask", response_model=QuestionResponse)
 def ask_question(request: QuestionRequest):
     q = request.question.strip()
+    print("Question asked : " + q)
     if len(q) > 1000:
         raise HTTPException(status_code=400, detail="Question too long. Limit to 1000 characters.")
 
