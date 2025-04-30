@@ -6,6 +6,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from googleapiclient.discovery import build
 import re
 import requests
+import json
 # import spacy
 from typing import List
 
@@ -286,9 +287,13 @@ def get_transcript(video_id):
     try:
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
         full_transcript = ' '.join([segment['text'] for segment in transcript])
+
+        # ✅ Also save raw JSON with timings
+        raw_json_path = os.path.join(data_store_directory, f"{video_id}_raw.json")
+        with open(raw_json_path, "w", encoding="utf-8") as raw_json_file:
+            json.dump(transcript, raw_json_file, indent=2)
+
         return full_transcript
-        # Segment  is {'text': 'technique Uh Kevin come in Z', 'start': 16.359, 'duration': 5.401}
-        # Segment object type is <class 'dict'>
     
     except Exception as e:
         print(f"Cannot get transcript for {video_id} - an error occurred: {str(e)}")
@@ -394,7 +399,18 @@ def main():
         print(f"ID: {video_id}")
         print(f"URL: {video_url}")
         
-        full_transcript_raw = get_transcript(video_id)
+        # full_transcript_raw = get_transcript(video_id)
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+            # Save raw JSON file
+            raw_json_path = os.path.join(transcript_folder, f"{video_id}_raw.json")
+            with open(raw_json_path, "w", encoding="utf-8") as raw_json_file:
+                json.dump(transcript, raw_json_file, indent=2)
+            full_transcript_raw = ' '.join([segment['text'] for segment in transcript])
+        except Exception as e:
+            print(f"Cannot get transcript for {video_id} - an error occurred: {str(e)}")
+            continue  # Skip this video and move on
+
         time.sleep(SLEEP_TIME)
         full_transcript = format_text_preserving(full_transcript_raw)
         
