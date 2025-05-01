@@ -1,8 +1,17 @@
 #!/bin/bash
+cd /home/ubuntu/llm-ask-david
 
-# Upgrade pip silently just in case
-pip install --upgrade pip --quiet
+# Create virtual environment if missing
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+fi
 
-# Run the FastAPI server with correct Uvicorn binary
-/Users/vuk/envs/rag_env/bin/uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000
+# Activate venv and install dependencies
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Run FastAPI server
+exec venv/bin/uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000
+
 
