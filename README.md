@@ -9,6 +9,37 @@ The system runs entirely on your local machine and uses:
 - **A lightweight frontend** for users to interact via the browser
 
 ---
+## Running
+To make sure it runs all the time on the server:
+
+Create a file /etc/systemd/system/fastapi.service with with content:
+[Unit]
+Description=FastAPI Server for David
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/llm-ask-david
+ExecStart=/home/ubuntu/llm-ask-david/run_rag_server.sh
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+
+
+Then, run these commands
+`sudo systemctl daemon-reexec`
+`sudo systemctl daemon-reload`
+`sudo systemctl enable fastapi`
+`sudo systemctl restart fastapi`
+
+When debugging, you can stop it
+`sudo systemctl stop fastapi`
+and to put it back, run
+`sudo systemctl start fastapi`
+
 
 ## 🛠️ How It Works
 
