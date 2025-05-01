@@ -49,31 +49,27 @@
     .link {
       font-weight: bold;
     }
+    .user-info {
+      text-align: right;
+      margin-bottom: 20px;
+    }
+    .logout-btn {
+      background: none;
+      border: none;
+      color: #007acc;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
 
-<script>
-  const users = {
-    "david": "thePlanet",
-    "moss": "theLightMan",
-    "vuk": "faca"
-  };
-
-  function authenticate() {
-    const username = prompt("Username:");
-    const password = prompt("Password:");
-    
-    if (users[username] && users[username] === password) {
-      alert("Welcome, " + username + "!");
-    } else {
-      alert("Access Denied.");
-      document.body.innerHTML = "<h2 style='text-align:center; color:red;'>Access Denied</h2>";
-    }
-  }
-
-  authenticate();
-</script>
+<div class="user-info">
+  Welcome, <span id="username"></span> | 
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
 
 <h1>Ask David</h1>
 <p style="text-align: center; font-size: 1rem; color: #444; margin-top: -10px; margin-bottom: 30px;">
@@ -91,6 +87,27 @@
 <script>
   let timerInterval;
   let secondsElapsed = 0;
+
+  // Check authentication when the page loads
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const response = await fetch('/me', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        // If not authenticated, redirect to login page
+        window.location.href = '/';
+        return;
+      }
+      
+      const data = await response.json();
+      document.getElementById('username').textContent = data.username;
+    } catch (error) {
+      console.error('Authentication check failed:', error);
+      window.location.href = '/';
+    }
+  });
 
   function startTimer() {
     const timerDiv = document.getElementById('timer');
@@ -127,50 +144,85 @@
 
     startTimer();
 
-    const res = await fetch("http://localhost:8000/ask", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ question })
-    });
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ question }),
+        credentials: 'include'  // Important for including cookies with the request
+      });
 
-    stopTimer();
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
 
-    if (!res.ok) {
-      const error = await res.text();
-      alert("Error: " + error);
-      return;
+      const data = await res.json();
+      stopTimer();
+      
+      responseDiv.style.display = 'block';
+      responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
+
+      if (data.sources && data.sources.length > 0) {
+        const heading = document.createElement('h3');
+        heading.innerText = "RESOURCES:";
+        heading.style.marginTop = "30px";
+        heading.style.color = "#007acc";
+        sourcesDiv.appendChild(heading);
+      }
+
+      data.sources.forEach(([link, snippet, score]) => {
+        const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
+        const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
+
+        const sourceEl = document.createElement('div');
+        sourceEl.classList.add('source');
+        sourceEl.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
+            <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
+          </div>
+          <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>
+        `;
+        sourcesDiv.appendChild(sourceEl);
+      });
+      console.log("Question submitted:", question);
+    } catch (err) {
+      stopTimer();
+      
+      // Check if it's an authentication error
+      if (err.message.includes('401') || err.message.includes('unauthorized')) {
+        alert("Your session has expired. Please log in again.");
+        window.location.href = '/';
+        return;
+      }
+      
+      alert("Request failed: " + err.message);
+      console.error("Fetch error:", err);
     }
-
-    const data = await res.json();
-    responseDiv.style.display = 'block';
-    responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
-
-    if (data.sources.length > 0) {
-      const heading = document.createElement('h3');
-      heading.innerText = "RESOURCES:";
-      heading.style.marginTop = "30px";
-      heading.style.color = "#007acc";
-      sourcesDiv.appendChild(heading);
-    }
-
-    data.sources.forEach(([link, snippet, score]) => {
-      const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
-      const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
-
-      const sourceEl = document.createElement('div');
-      sourceEl.classList.add('source');
-      sourceEl.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
-          <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
-        </div>
-        <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>
-      `;
-      sourcesDiv.appendChild(sourceEl);
-    });
   }
+
+  async function logout() {
+    try {
+      await fetch('/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      alert('Logout failed. Please try again.');
+    }
+  }
+  
+  // Support for Enter key to submit
+  document.getElementById('question').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      askDavid();
+    }
+  });
 </script>
 
 <footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
@@ -188,3 +240,4 @@
 </footer>
 </body>
 </html>
+

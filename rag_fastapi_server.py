@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 
 from pydantic import BaseModel
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import uvicorn
 import time
 import textwrap
@@ -19,6 +21,9 @@ import shutil
 import platform
 from youtube_transcript_api import YouTubeTranscriptApi
 from fastapi.staticfiles import StaticFiles
+import secrets
+import hashlib
+from datetime import datetime, timedelta
 
 
 # === CONFIG ===
@@ -35,6 +40,30 @@ data_dir = "data/DavidSnyder"
 q_and_a_dir = "data/qanda"
 
 MAX_TOKENS = 512
+
+# === AUTHENTICATION CONFIG ===
+# In production, store these securely (like in environment variables)
+# Hash the passwords in a real application
+USERS = {
+    "david": {
+        "password": hashlib.sha256("thePlanet".encode()).hexdigest(),
+        "disabled": False
+    },
+    "moss": {
+        "password": hashlib.sha256("theLightMan".encode()).hexdigest(),
+        "disabled": False
+    },
+    "vuk": {
+        "password": hashlib.sha256("faca".encode()).hexdigest(),
+        "disabled": False
+    }
+}
+
+# Session storage
+# In production, use a proper database or Redis
+active_sessions = {}
+SESSION_COOKIE_NAME = "david_session"
+SESSION_EXPIRY_DAYS = 7
 
 # === LOAD MODELS ===
 embedder = SentenceTransformer('all-mpnet-base-v2')
@@ -68,9 +97,7 @@ llm = Llama(
     verbose=False
 )
 
-# OLD STYLE NO GPU 
-# llm = Llama(model_path=llama_model_path, n_ctx=2048, verbose=False)
-
+# Load FAISS index
 index = faiss.read_index(faiss_index_path)
 
 # Load documents and rebuild chunks list
@@ -104,6 +131,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === AUTH MODELS ===
+class User(BaseModel):
+    username: str
+    disabled: Optional[bool] = None
+
+class UserInDB(User):
+    hashed_password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    username: str
+
 class QuestionRequest(BaseModel):
     question: str
 
@@ -111,6 +155,63 @@ class QuestionResponse(BaseModel):
     answer: str
     sources: List[Tuple[str, str, float]]
 
+# === AUTH FUNCTIONS ===
+def verify_password(plain_password, hashed_password):
+    """Verify password against hashed version"""
+    return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
+
+def get_user(username: str):
+    """Get user from database"""
+    if username in USERS:
+        user_dict = USERS[username]
+        return UserInDB(**user_dict, username=username, hashed_password=user_dict["password"])
+    return None
+
+def authenticate_user(username: str, password: str):
+    """Authenticate a user"""
+    user = get_user(username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+def create_session(username: str):
+    """Create a new session for user"""
+    session_id = secrets.token_hex(16)
+    expiry = datetime.now() + timedelta(days=SESSION_EXPIRY_DAYS)
+    active_sessions[session_id] = {"username": username, "expiry": expiry}
+    return session_id
+
+def get_current_user(session: Optional[str] = Cookie(None, alias=SESSION_COOKIE_NAME)):
+    """Get current user from session cookie"""
+    if not session or session not in active_sessions:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    session_data = active_sessions[session]
+    
+    # Check if session is expired
+    if datetime.now() > session_data["expiry"]:
+        del active_sessions[session]
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    username = session_data["username"]
+    user = get_user(username)
+    
+    if user is None or user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    
+    return user
+
+# === HELPER FUNCTIONS ===
 def wrap_text(text, width=99):
     return "\n".join(textwrap.wrap(text, width=width))
 
@@ -122,7 +223,6 @@ def ask_llm(prompt, max_tokens):
     latency = round(end - start, 3)
     return answer, latency
 
-#### VUK JUST ADDED THIS
 def extract_video_id(video_input):
     match = re.search(r"(?:v=|youtu\.be/|embed/)([0-9A-Za-z_-]{11})", video_input)
     return match.group(1) if match else video_input
@@ -139,11 +239,14 @@ def progressive_shrink(words, min_words=5):
 
 def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5):
     video_id = extract_video_id(video_input)
+    local_path = os.path.join(data_dir, f"{video_id}_raw.json")
 
+    # Try to load from local JSON
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        with open(local_path, "r", encoding="utf-8") as f:
+            transcript = json.load(f)
     except Exception as e:
-        return f"Transcript not available: {e}", None, "", 0.0
+        return f"Transcript not available locally: {e}", None, "", 0.0
 
     # Build cleaned full transcript string and map position to time
     full_cleaned_text = ""
@@ -154,7 +257,7 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
         cleaned_text = clean_text(raw_text)
         start_char = len(full_cleaned_text)
         full_cleaned_text += cleaned_text + " "
-        
+
         for i in range(len(cleaned_text)):
             char_pos_to_start_time[start_char + i] = entry['start']
 
@@ -169,10 +272,63 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
 
     return "No match found at any length.", None, "", 0.0
 
+# === ROUTES ===
+@app.post("/login")
+async def login(login_request: LoginRequest):
+    """Login endpoint"""
+    user = authenticate_user(login_request.username, login_request.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    session_id = create_session(user.username)
+    
+    response = JSONResponse(
+        content={
+            "username": user.username,
+            "message": "Login successful"
+        }
+    )
+    
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        max_age=60 * 60 * 24 * SESSION_EXPIRY_DAYS,  # 7 days in seconds
+        samesite="lax",
+        # secure=True  # Enable in production with HTTPS
+    )
+    
+    return response
+
+@app.post("/logout")
+async def logout(user: User = Depends(get_current_user), session: Optional[str] = Cookie(None, alias=SESSION_COOKIE_NAME)):
+    """Logout endpoint"""
+    if session and session in active_sessions:
+        del active_sessions[session]
+    
+    response = JSONResponse(content={"message": "Logout successful"})
+    response.delete_cookie(SESSION_COOKIE_NAME)
+    
+    return response
+
+@app.get("/me")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    """Get current user info"""
+    return {"username": current_user.username}
+
 @app.post("/ask", response_model=QuestionResponse)
-def ask_question(request: QuestionRequest):
+async def ask_question(
+    request: QuestionRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Protected endpoint to ask questions"""
     q = request.question.strip()
-    print("Question asked : " + q)
+    print(f"Question asked by {current_user.username}: {q}")
+    
     if len(q) > 1000:
         raise HTTPException(status_code=400, detail="Question too long. Limit to 1000 characters.")
 
@@ -200,7 +356,7 @@ def ask_question(request: QuestionRequest):
             updated_link, timestamp, matched_text, score = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
 
             if file not in seen_files:
-                source_entries.append((updated_link, matched_text, D[0][idx]))
+                source_entries.append((updated_link, matched_text, float(D[0][idx])))
                 seen_files.add(file)
 
             retrieved_chunks.append(chunk_text)
@@ -209,7 +365,7 @@ def ask_question(request: QuestionRequest):
         prompt = f"""[INST] Use the context below to answer the question.\n\nContext:\n{retrieved_context}\n\nQuestion: {q}\n[/INST]"""
     else:
         prompt = f"[INST] {q} [/INST]"
-        source_entries = [("No video link", "No reference text available.")]
+        source_entries = [("No video link", "No reference text available.", 0.0)]
         retrieved_chunks = []
 
     # ==== Start timing model answering ====
@@ -226,6 +382,7 @@ def ask_question(request: QuestionRequest):
             os.makedirs(q_and_a_dir, exist_ok=True)
             timestamp = int(time.time())
             data = {
+                "username": current_user.username,
                 "question": q,
                 "answer": answer,
                 "references": source_entries,
@@ -242,8 +399,33 @@ def ask_question(request: QuestionRequest):
 
     return QuestionResponse(answer=answer, sources=source_entries)
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# === STATIC FILES ===
+# Serve static files, but protect with authentication check
+@app.get("/ask_david.html")
+async def secure_ask_david(current_user: User = Depends(get_current_user)):
+    """Serve the ask_david.html file, but only to authenticated users"""
+    with open("static/ask_david.html", "r") as f:
+        content = f.read()
+    return HTMLResponse(content=content)
 
+# Redirect root to login if not authenticated
+@app.get("/")
+async def root(session: Optional[str] = Cookie(None, alias=SESSION_COOKIE_NAME)):
+    """Redirect to login page if not authenticated"""
+    # Check if user is authenticated
+    try:
+        if session and session in active_sessions:
+            return RedirectResponse(url="/ask_david.html")
+    except:
+        pass
+    
+    # If not authenticated, serve login page
+    with open("static/login.html", "r") as f:
+        content = f.read()
+    return HTMLResponse(content=content)
+
+# Mount static files for CSS, JS, etc.
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

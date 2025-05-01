@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Ask David</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .login-container {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    .error-message {
+      color: #e53935;
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      background-color: rgba(229, 57, 53, 0.1);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ask David</h1>
+  
+  <div class="login-container">
+    <h2 style="text-align: center; margin-top: 0;">Login</h2>
+    <p style="text-align: center; color: #666;">
+      Please log in to access David Snyder's AI assistant
+    </p>
+    
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" placeholder="Enter your username">
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter your password">
+    </div>
+    
+    <button onclick="login()">Login</button>
+    
+    <div id="error-message" class="error-message"></div>
+  </div>
+
+  <script>
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorElement = document.getElementById('error-message');
+      
+      if (!username || !password) {
+        errorElement.textContent = "Please enter both username and password";
+        errorElement.style.display = "block";
+        return;
+      }
+      
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password }),
+          credentials: 'include'  // Important for cookies
+        });
+        
+        if (response.ok) {
+          // Redirect to main application
+          window.location.href = '/ask_david.html';
+        } else {
+          const data = await response.json();
+          errorElement.textContent = data.detail || "Login failed";
+          errorElement.style.display = "block";
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        errorElement.textContent = "An error occurred. Please try again.";
+        errorElement.style.display = "block";
+      }
+    }
+    
+    // Support for pressing Enter key to submit
+    document.getElementById('password').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        login();
+      }
+    });
+  </script>
+</body>
+</html>
+
