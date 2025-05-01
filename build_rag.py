@@ -38,6 +38,9 @@ def load_documents_with_metadata(folder_path, chunk_size=1000, chunk_overlap=400
     total_bytes = 0
 
     for filepath in glob.glob(os.path.join(folder_path, '*')):
+        if filepath.endswith('_raw.json'):
+            continue  # Skip raw JSON transcripts
+
         filename = os.path.basename(filepath)
         total_bytes += os.path.getsize(filepath)
 
