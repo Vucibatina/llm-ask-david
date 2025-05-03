@@ -53,6 +53,10 @@ USERS = {
         "password": hashlib.sha256("theLightMan".encode()).hexdigest(),
         "disabled": False
     },
+    "ana": {
+        "password": hashlib.sha256("sestra".encode()).hexdigest(),
+        "disabled": False
+    }, 
     "vuk": {
         "password": hashlib.sha256("faca".encode()).hexdigest(),
         "disabled": False
