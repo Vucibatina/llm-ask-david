@@ -156,7 +156,14 @@ will need to specifiy the target directory and youtube creator name so that all
 their videos can be pulled and transcribed.  Here is the example on how to run:
 
 `python transcript_loader.py --path "data/DavidSnyder" --username "DavidSnyderNLP"`
+`python transcript_loader.py --path "data/hubermanlab" --username "@hubermanlab"`
 
+For each video, we will produce 3 files:
+video_id.txt          --->  Full text of the video transcript
+video_id_raw.json     --->  JSON file of timings of transcript relating to video
+                          to know exactly where to go in the video when you want to 
+                          listen to transcript
+video_id_summary.json --->  Video Metadata with Summary of the entire video
 ---
 
 ## Running a RAG Creation

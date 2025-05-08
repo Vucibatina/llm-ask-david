@@ -1,3 +1,13 @@
+import llama_cpp
+import ctypes
+
+# Addition for model not to dump all the verbose things during the run
+LOG_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p)
+@LOG_CALLBACK
+def silent_logger(user_data, level, text):
+    pass  # swallow all logs
+llama_cpp.llama_log_set(silent_logger, None)
+
 import os 
 import sys
 import time
@@ -10,6 +20,10 @@ import json
 # import spacy
 from typing import List
 
+from llama_cpp import Llama
+
+
+SAVE_SUMMARY_FILE = True
 
 class SmartTranscriptFormatter:
     def __init__(self):
@@ -259,9 +273,7 @@ def get_youtube_channel_id(api_key, username):
         print(f"No channels found for username: {username}")
         return None, None
 
-
-def save_transcript_as_file(directory, video_title, file_name, video_id, video_url, transcript):
-
+def save_transcript_as_file(directory, video_title, file_name, video_id, video_url, transcript, username, channel_id, channel_name, video_publish_date):
     # Create the directory if it doesn't exist
     os.makedirs(directory, exist_ok=True)
 
@@ -270,17 +282,23 @@ def save_transcript_as_file(directory, video_title, file_name, video_id, video_u
     # Create the full file path
     file_path = os.path.join(directory, filename)
     
+    # Format the date as YYYY-MM-DD
+    formatted_date = video_publish_date.split('T')[0] if 'T' in video_publish_date else video_publish_date
+    
     # Open the file for writing
     with open(file_path, "w", encoding='utf-8') as file:
-        # Write each string to the file
+        # Write each string to the file with the new metadata fields
+        file.write("Channel ID: " + username + "\n")
+        file.write("Channel Internal youtube ID: " + channel_id + "\n")
+        file.write("Channel Name: " + channel_name + "\n")
+        file.write("Date Produced: " + formatted_date + "\n")
         file.write("Title: " + video_title + "\n")
         file.write("File Name: " + file_name + "\n")
         file.write("Video Id: " + video_id + "\n")
         file.write("Video URL: " + video_url + "\n\n")
         file.write(transcript + "\n")
         
-    
-    print(f"Transcript written to file {filename}  successfully.")
+    print(f"Transcript written to file {filename} successfully.")
 
 def get_transcript(video_id):
     full_transcript = ''
@@ -331,6 +349,44 @@ def get_channel_videos(channel_id, api_key):
             break
 
     return videos
+
+
+def get_transcript_summary(full_transcript):
+    max_context_tokens = 2048
+    max_response_tokens = 800
+    max_prompt_tokens = max_context_tokens - max_response_tokens
+
+    # Fixed system instruction
+    prompt_intro = (
+        "This is a transcript from a video. I need you to summarize with maximum 300 words what this video is about. "
+        "Primary focus is practicality of what it suggests to be done, second priority is the theory and science:\n\n"
+    )
+
+    # Safe word-based truncation
+    intro_words = prompt_intro.split()
+    transcript_words = full_transcript.split()
+    allowed_transcript_words = max_prompt_tokens - len(intro_words)
+    safe_transcript = " ".join(transcript_words[:allowed_transcript_words])
+    full_text = prompt_intro + safe_transcript
+    full_prompt = prompt_intro + safe_transcript
+
+    llm = Llama(
+        model_path="llm_models/Yi-1.5-9B-Chat-Q4_K_M.gguf",
+        n_ctx=max_context_tokens,
+        n_threads=8,
+        temperature=0.7,
+        chat_format="chatml"  # Use the correct chat template
+    )
+
+    output = llm.create_chat_completion(
+        messages=[
+            {"role": "user", "content": full_text}
+        ],
+        max_tokens=max_response_tokens
+    )
+
+    return output["choices"][0]["message"]["content"].strip()
+
 
 #########################  MAIN FUNCTION  ###################################
 #
@@ -413,13 +469,47 @@ def main():
 
         time.sleep(SLEEP_TIME)
         full_transcript = format_text_preserving(full_transcript_raw)
+        video_summary = get_transcript_summary(full_transcript)
+        if SAVE_SUMMARY_FILE:
+            # Save summary to a JSON file
+            summary_json_path = os.path.join(transcript_folder, f"{video_id}_summary.json")
+            summary_data = {
+                "video_id": video_id,
+                "video_title": video_title,
+                "video_url": video_url,
+                "channel_id": channel_id,
+                "channel_name": channel_name,
+                "username": username,
+                "publish_date": video['snippet']['publishedAt'],
+                "summary": video_summary
+            }
+            
+            with open(summary_json_path, "w", encoding="utf-8") as summary_json_file:
+                json.dump(summary_data, summary_json_file, indent=2)
+            
+            print(f"Summary saved to {summary_json_path}")
+
+        print("\nVIDEO SUMMARY: ")
+        print(video_summary)
         
         # Using video ID for filename
         file_name = f"{video_id}.txt"
         
         # Save transcript to the folder
-        save_transcript_as_file(transcript_folder, video_title, file_name, video_id, video_url, full_transcript)
-        
+        video_publish_date = video['snippet']['publishedAt']
+        save_transcript_as_file(
+            transcript_folder, 
+            video_title, 
+            file_name, 
+            video_id, 
+            video_url, 
+            full_transcript,
+            username,
+            channel_id,
+            channel_name,
+            video_publish_date
+        )
+
         print(f"Transcript available: {len(full_transcript)>0}")
         words = re.findall(r'\b\w+\b', full_transcript)
         num_words = len(words)
