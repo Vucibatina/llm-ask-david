@@ -28,8 +28,6 @@ from datetime import datetime, timedelta
 
 # === CONFIG ===
 initial_rag = "rag_cache"
-chatgpt_rag = "rag_cache_chatgpt"
-antropic_rag = "rag_cache_antropic"
 
 llama_model_path = "llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
 mistral_model_path ="llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
