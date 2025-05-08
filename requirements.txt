@@ -20,6 +20,11 @@ diskcache
 jinja2
 numpy
 typing-extensions
+torch 
+torchvision 
+torchaudio
+faiss-cpu
+
 
 
 
