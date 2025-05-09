@@ -88,6 +88,9 @@ def is_gpu_available():
         # Windows or unknown system
         return False
     
+print("initial_rag: " + initial_rag)
+print("data_dir: " + data_dir)
+
 if is_gpu_available():
     n_gpu_layers = -1
     print("🚀 GPU detected: using GPU acceleration (n_gpu_layers = -1)")
@@ -279,7 +282,7 @@ def find_youtube_timestamp_exact_progressive_OLD(video_input, full_text, min_wor
     return "No match found at any length.", None, "", 0.0
 
 def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5):
-    print("RUNNING NEW find_youtube_timestamp_exact_progressive with SUMMARY")
+    print("RUNNING NEW find_youtube_timestamp_exact_progressive with SUMMARY ON " + video_input)
     video_id = extract_video_id(video_input)
     local_path = os.path.join(data_dir, f"{video_id}_raw.json")
     summary_path = os.path.join(data_dir, f"{video_id}_summary.json")
@@ -402,9 +405,16 @@ async def ask_question(
             entry = metadata[i]
             file = entry['file']
             meta = entry.get('metadata', {})
-            original_link = meta.get("Video URL", "N/A")
+            # original_link = meta.get("Video URL", "N/A")
+            original_link = meta.get("Video URL")
+            if not original_link or original_link == "N/A":
+                original_link = entry['file']
+            # Remove ".txt" if it ends with it
+            if original_link.endswith(".txt"):
+                original_link = original_link[:-4]
 
             updated_link, timestamp, matched_text, score, video_summary = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
+
             print("VIDEO SUMMARY: " + video_summary)
 
             if file not in seen_files:
