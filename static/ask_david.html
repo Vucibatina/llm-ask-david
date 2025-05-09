@@ -5,22 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask David</title>
   <style>
-    #micBtn {
-  margin-left: 10px;
-  font-size: 1.2rem;
-  padding: 8px 12px;
-}
-
-
     body {
       font-family: Arial, sans-serif;
       max-width: 800px;
       margin: 50px auto;
       padding: 20px;
     }
+    
     h1 {
       text-align: center;
     }
+    
     textarea {
       width: 100%;
       height: 120px;
@@ -28,15 +23,24 @@
       padding: 10px;
       margin-bottom: 10px;
     }
+    
     button {
       padding: 10px 20px;
       font-size: 1rem;
     }
+    
+    #micBtn {
+      margin-left: 10px;
+      font-size: 1.2rem;
+      padding: 8px 12px;
+    }
+    
     #timer {
       font-style: italic;
       color: #555;
       margin-top: 10px;
     }
+    
     .response {
       background: #f2f2f2;
       padding: 20px;
@@ -44,22 +48,27 @@
       border-radius: 8px;
       white-space: pre-wrap;
     }
+    
     .sources {
       margin-top: 20px;
     }
+    
     .source {
       margin-bottom: 15px;
       padding: 15px;
       border-left: 5px solid #007acc;
       background-color: #f9f9f9;
     }
+    
     .link {
       font-weight: bold;
     }
+    
     .user-info {
       text-align: right;
       margin-bottom: 20px;
     }
+    
     .logout-btn {
       background: none;
       border: none;
@@ -72,228 +81,213 @@
   </style>
 </head>
 <body>
+  <div class="user-info">
+    Welcome, <span id="username"></span> | 
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
 
-<div class="user-info">
-  Welcome, <span id="username"></span> | 
-  <button class="logout-btn" onclick="logout()">Logout</button>
-</div>
+  <h1>Ask David</h1>
+  <p style="text-align: center; font-size: 1rem; color: #444; margin-top: -10px; margin-bottom: 30px;">
+    This page is a ChatGPT-like assistant trained on all of David Snyder's published and free YouTube videos. 
+    Ask any question related to David's teachings — this page will answer in David's style and include links to the 
+    exact video moments where the answers came from.
+  </p>
+  
+  <textarea id="question" placeholder="Enter your question here..."></textarea>
 
-<h1>Ask David</h1>
-<p style="text-align: center; font-size: 1rem; color: #444; margin-top: -10px; margin-bottom: 30px;">
-  This page is a ChatGPT-like assistant trained on all of David Snyder's published and free YouTube videos. 
-  Ask any question related to David's teachings — this page will answer in David's style and include links to the 
-  exact video moments where the answers came from.
-</p>
-<textarea id="question" placeholder="Enter your question here..."></textarea>
+  <button onclick="askDavid()">Ask</button>
+  <button id="micBtn" title="Click to speak 🎤">🎤</button>
 
-<button onclick="askDavid()">Ask</button>
-<button id="micBtn" title="Click to speak 🎤">🎤</button>
+  <div id="timer"></div>
+  <div id="response" class="response" style="display: none;"></div>
+  <div id="sources" class="sources"></div>
 
+  <footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
+    <div>
+      Teachings by
+      <a href="https://www.youtube.com/@DavidSnyderNLP" target="_blank" style="color: #007acc; text-decoration: none;">
+        David Snyder
+      </a>
+    </div>
+    <div style="margin-top: 5px;">
+      Web Page and AI Knowledge Extraction by 
+      <a href="mailto:vucibatina@hotmail.com" style="color: #007acc; text-decoration: none;">
+        Vuk Radovic
+      </a>
+    </div>
+  </footer>
 
-<div id="timer"></div>
+  <!-- Summary Modal -->
+  <div id="summaryModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999;">
+    <div style="background:white; max-width:600px; margin:10% auto; padding:20px; border-radius:8px; position:relative;">
+      <h3>Video Summary</h3>
+      <p id="summaryContent" style="white-space:pre-wrap; line-height:1.5;"></p>
+      <button onclick="closeModal()" style="position:absolute; top:10px; right:10px;">Close</button>
+    </div>
+  </div>
 
-<div id="response" class="response" style="display: none;"></div>
-<div id="sources" class="sources"></div>
+  <script>
+    const micBtn = document.getElementById('micBtn');
+    const questionBox = document.getElementById('question');
+    let recognition;
+    let timerInterval;
+    let secondsElapsed = 0;
 
+    // Speech recognition setup
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
 
+      micBtn.addEventListener('click', () => {
+        recognition.start();
+        micBtn.innerText = '🎙️ Listening...';
+      });
 
+      recognition.onresult = (event) => {
+        const speechToText = event.results[0][0].transcript;
+        questionBox.value = speechToText;
+        micBtn.innerText = '🎤';
+      };
 
+      recognition.onerror = (event) => {
+        alert('Error: ' + event.error);
+        micBtn.innerText = '🎤';
+      };
 
-<script>
+      recognition.onend = () => {
+        micBtn.innerText = '🎤';
+      };
+    } else {
+      micBtn.disabled = true;
+      micBtn.title = "Speech recognition not supported in this browser.";
+    }
 
-const micBtn = document.getElementById('micBtn');
-const questionBox = document.getElementById('question');
+    // Check user session on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/me', { credentials: 'include' });
+        if (!response.ok) return window.location.href = '/';
+        const data = await response.json();
+        document.getElementById('username').textContent = data.username;
+      } catch (error) {
+        window.location.href = '/';
+      }
+    });
 
-let recognition;
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
+    function startTimer() {
+      const timerDiv = document.getElementById('timer');
+      secondsElapsed = 0;
+      timerDiv.innerText = "⏳ Working on producing your answer... 0s";
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        timerDiv.innerText = `⏳ Working on producing your answer... ${secondsElapsed}s`;
+      }, 1000);
+    }
 
-  micBtn.addEventListener('click', () => {
-    recognition.start();
-    micBtn.innerText = '🎙️ Listening...';
-  });
+    function stopTimer() {
+      clearInterval(timerInterval);
+      document.getElementById('timer').innerText = "";
+    }
 
-  recognition.onresult = (event) => {
-    const speechToText = event.results[0][0].transcript;
-    questionBox.value = speechToText;
-    micBtn.innerText = '🎤';
-  };
+    function formatAnswer(text) {
+      return text.replace(/(\d+\.)/g, '\n\n$1').replace(/\n{3,}/g, '\n\n').trim();
+    }
 
-  recognition.onerror = (event) => {
-    alert('Error: ' + event.error);
-    micBtn.innerText = '🎤';
-  };
+    function showSummary(summary) {
+      const modal = document.getElementById("summaryModal");
+      const content = document.getElementById("summaryContent");
+      content.innerText = summary || "No summary available.";
+      modal.style.display = "block";
+    }
 
-  recognition.onend = () => {
-    micBtn.innerText = '🎤';
-  };
-} else {
-  micBtn.disabled = true;
-  micBtn.title = "Speech recognition not supported in this browser.";
-}
+    function closeModal() {
+      document.getElementById("summaryModal").style.display = "none";
+    }
 
+    async function askDavid() {
+      const question = document.getElementById('question').value;
+      const responseDiv = document.getElementById('response');
+      const sourcesDiv = document.getElementById('sources');
 
+      responseDiv.style.display = 'none';
+      responseDiv.innerHTML = "";
+      sourcesDiv.innerHTML = "";
 
-  let timerInterval;
-  let secondsElapsed = 0;
+      if (!question.trim()) return alert("Please enter a question.");
 
-  window.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const response = await fetch('/me', { credentials: 'include' });
-      if (!response.ok) return window.location.href = '/';
-      const data = await response.json();
-      document.getElementById('username').textContent = data.username;
-    } catch (error) {
+      startTimer();
+
+      try {
+        const res = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+          credentials: 'include'
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        const data = await res.json();
+        stopTimer();
+
+        responseDiv.style.display = 'block';
+        responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
+
+        if (data.sources && data.sources.length > 0) {
+          const heading = document.createElement('h3');
+          heading.innerText = "RESOURCES:";
+          heading.style.marginTop = "30px";
+          heading.style.color = "#007acc";
+          sourcesDiv.appendChild(heading);
+        }
+
+        data.sources.forEach(([link, snippet, score, summary]) => {
+          const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
+          const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
+
+          const sourceEl = document.createElement('div');
+          sourceEl.classList.add('source');
+          sourceEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
+              <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
+            </div>
+            <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>          
+            ${isYouTube && summary ? `<button class="summary-btn" data-summary="${summary.replace(/"/g, "&quot;")}" style="margin-top: 10px;">Video Summary</button>` : ''}
+          `;
+          sourcesDiv.appendChild(sourceEl);
+        });
+
+      } catch (err) {
+        stopTimer();
+        if (err.message.includes('401') || err.message.includes('unauthorized')) {
+          alert("Your session has expired. Please log in again.");
+          window.location.href = '/';
+        } else {
+          alert("Request failed: " + err.message);
+        }
+      }
+    }
+
+    async function logout() {
+      await fetch('/logout', { method: 'POST', credentials: 'include' });
       window.location.href = '/';
     }
-  });
 
-  function startTimer() {
-    const timerDiv = document.getElementById('timer');
-    secondsElapsed = 0;
-    timerDiv.innerText = "⏳ Working on producing your answer... 0s";
-    timerInterval = setInterval(() => {
-      secondsElapsed++;
-      timerDiv.innerText = `⏳ Working on producing your answer... ${secondsElapsed}s`;
-    }, 1000);
-  }
+    document.getElementById('question').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && e.ctrlKey) askDavid();
+    });
 
-  function stopTimer() {
-    clearInterval(timerInterval);
-    document.getElementById('timer').innerText = "";
-  }
-
-  function formatAnswer(text) {
-    return text.replace(/(\d+\.)/g, '\n\n$1').replace(/\n{3,}/g, '\n\n').trim();
-  }
-
-  function showSummary(summary) {
-    const modal = document.getElementById("summaryModal");
-    const content = document.getElementById("summaryContent");
-    content.innerText = summary || "No summary available.";
-    modal.style.display = "block";
-  }
-
-  function closeModal() {
-    document.getElementById("summaryModal").style.display = "none";
-  }
-
-  async function askDavid() {
-    const question = document.getElementById('question').value;
-    const responseDiv = document.getElementById('response');
-    const sourcesDiv = document.getElementById('sources');
-
-    responseDiv.style.display = 'none';
-    responseDiv.innerHTML = "";
-    sourcesDiv.innerHTML = "";
-
-    if (!question.trim()) return alert("Please enter a question.");
-
-    startTimer();
-
-    try {
-      const res = await fetch("/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
-        credentials: 'include'
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-
-      const data = await res.json();
-      stopTimer();
-
-      responseDiv.style.display = 'block';
-      responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
-
-      if (data.sources && data.sources.length > 0) {
-        const heading = document.createElement('h3');
-        heading.innerText = "RESOURCES:";
-        heading.style.marginTop = "30px";
-        heading.style.color = "#007acc";
-        sourcesDiv.appendChild(heading);
+    // Handle summary buttons (event delegation)
+    document.addEventListener("click", function (e) {
+      if (e.target.classList.contains("summary-btn")) {
+        const summary = e.target.getAttribute("data-summary");
+        showSummary(summary);
       }
-
-      data.sources.forEach(([link, snippet, score, summary]) => {
-        const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
-        const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
-
-        const sourceEl = document.createElement('div');
-        sourceEl.classList.add('source');
-        sourceEl.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
-            <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
-          </div>
-          <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>          
-          ${isYouTube && summary ? `<button class="summary-btn" data-summary="${summary.replace(/"/g, "&quot;")}" style="margin-top: 10px;">Video Summary</button>` : ''}
-        `;
-        sourcesDiv.appendChild(sourceEl);
-      });
-
-    } catch (err) {
-      stopTimer();
-      if (err.message.includes('401') || err.message.includes('unauthorized')) {
-        alert("Your session has expired. Please log in again.");
-        window.location.href = '/';
-      } else {
-        alert("Request failed: " + err.message);
-      }
-    }
-  }
-
-  async function logout() {
-    await fetch('/logout', { method: 'POST', credentials: 'include' });
-    window.location.href = '/';
-  }
-
-  document.getElementById('question').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && e.ctrlKey) askDavid();
-  });
-
-  // Handle summary buttons (event delegation)
-  document.addEventListener("click", function (e) {
-    if (e.target.classList.contains("summary-btn")) {
-      const summary = e.target.getAttribute("data-summary");
-      showSummary(summary);
-    }
-  });
-
-
-</script>
-
-
-
-
-<footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
-  <div>Teachings by
-    <a href="https://www.youtube.com/@DavidSnyderNLP" target="_blank" style="color: #007acc; text-decoration: none;">
-       David Snyder
-    </a>
-  </div>
-  <div style="margin-top: 5px;">
-    Web Page and AI Knowledge Extraction by 
-    <a href="mailto:vucibatina@hotmail.com" style="color: #007acc; text-decoration: none;">
-      Vuk Radovic
-    </a>
-  </div>
-</footer>
-
-<!-- Summary Modal -->
-<div id="summaryModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999;">
-  <div style="background:white; max-width:600px; margin:10% auto; padding:20px; border-radius:8px; position:relative;">
-    <h3>Video Summary</h3>
-    <p id="summaryContent" style="white-space:pre-wrap; line-height:1.5;"></p>
-    <button onclick="closeModal()" style="position:absolute; top:10px; right:10px;">Close</button>
-  </div>
-</div>
-
-
+    });
+  </script>
 </body>
 </html>
-
