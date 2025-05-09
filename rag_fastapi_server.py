@@ -239,7 +239,7 @@ def progressive_shrink(words, min_words=5):
     if len(words) >= min_words:
         yield " ".join(words)
 
-def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5):
+def find_youtube_timestamp_exact_progressive_OLD(video_input, full_text, min_words=5):
     video_id = extract_video_id(video_input)
     local_path = os.path.join(data_dir, f"{video_id}_raw.json")
 
@@ -273,6 +273,51 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
             return link, int(match_start_time), candidate, 1.0
 
     return "No match found at any length.", None, "", 0.0
+
+def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5):
+    print("RUNNING NEW find_youtube_timestamp_exact_progressive with SUMMARY")
+    video_id = extract_video_id(video_input)
+    local_path = os.path.join(data_dir, f"{video_id}_raw.json")
+    summary_path = os.path.join(data_dir, f"{video_id}_summary.json")
+
+    # Load video summary
+    try:
+        with open(summary_path, "r", encoding="utf-8") as f:
+            summary_json = json.load(f)
+            video_summary = summary_json.get("summary", "")
+    except Exception:
+        video_summary = ""
+
+    # Try to load from local transcript JSON
+    try:
+        with open(local_path, "r", encoding="utf-8") as f:
+            transcript = json.load(f)
+    except Exception as e:
+        return f"Transcript not available locally: {e}", None, "", 0.0, video_summary
+
+    # Build cleaned full transcript string and map position to time
+    full_cleaned_text = ""
+    char_pos_to_start_time = {}
+
+    for entry in transcript:
+        raw_text = entry['text'].replace('\n', ' ')
+        cleaned_text = clean_text(raw_text)
+        start_char = len(full_cleaned_text)
+        full_cleaned_text += cleaned_text + " "
+
+        for i in range(len(cleaned_text)):
+            char_pos_to_start_time[start_char + i] = entry['start']
+
+    original_words = clean_text(full_text).split()
+
+    for candidate in progressive_shrink(original_words, min_words=min_words):
+        match_pos = full_cleaned_text.find(candidate)
+        if match_pos != -1:
+            match_start_time = char_pos_to_start_time.get(match_pos, 0)
+            link = f"https://www.youtube.com/watch?v={video_id}&t={int(match_start_time)}"
+            return link, int(match_start_time), candidate, 1.0, video_summary
+
+    return "No match found at any length.", None, "", 0.0, video_summary
 
 # === ROUTES ===
 @app.post("/login")
@@ -355,7 +400,8 @@ async def ask_question(
             meta = entry.get('metadata', {})
             original_link = meta.get("Video URL", "N/A")
 
-            updated_link, timestamp, matched_text, score = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
+            updated_link, timestamp, matched_text, score, video_summary = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
+            print("VIDEO SUMMARY: " + video_summary)
 
             if file not in seen_files:
                 source_entries.append((updated_link, matched_text, float(D[0][idx])))
