@@ -155,7 +155,7 @@ class QuestionRequest(BaseModel):
 
 class QuestionResponse(BaseModel):
     answer: str
-    sources: List[Tuple[str, str, float]]
+    sources: List[Tuple[str, str, float, str]]
 
 # === AUTH FUNCTIONS ===
 def verify_password(plain_password, hashed_password):
@@ -404,7 +404,7 @@ async def ask_question(
             print("VIDEO SUMMARY: " + video_summary)
 
             if file not in seen_files:
-                source_entries.append((updated_link, matched_text, float(D[0][idx])))
+                source_entries.append((updated_link, matched_text, float(D[0][idx]), video_summary))
                 seen_files.add(file)
 
             retrieved_chunks.append(chunk_text)
