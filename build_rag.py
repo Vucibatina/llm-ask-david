@@ -57,7 +57,7 @@ def parse_arguments():
 
 # === Per-file Processing ===
 def process_file(filepath, chunk_size, chunk_overlap, folder_path):
-    if filepath.endswith('_raw.json'):
+    if filepath.endswith('.json'):
         return [], [], 0
 
     chunks = []
