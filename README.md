@@ -176,6 +176,16 @@ Latest mode, use mistral model, embedding model mpnet for more accuracy, mini fo
 `python build_rag.py --data_dir "/Users/vuk/projects/ask_david_clean/data/DavidSnyder" --model_path "/Users/vuk/projects/llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf" --save_dir "rag_cache" --embedding_model mpnet --chunk_size 1000 --chunk_overlap 100`
 
 --
+## Running the fast api server
+
+Running the server, you need a RAG directory, LLM Directory hosting the model file
+and data directory, hosting the documents, in this case youtube video transcripts
+and metadata files.  To specify where the RAG directory is and Data directory, use
+the below command
+`INITIAL_RAG=rag_combined DATA_DIR=data/new_dataset \
+   exec venv/bin/uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000`
+
+--
 
 ## ✉️ Author
 

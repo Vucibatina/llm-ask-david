@@ -27,14 +27,18 @@ from datetime import datetime, timedelta
 
 
 # === CONFIG ===
-initial_rag = "rag_cache"
+#  To run and set the env variables, do it like this:
+#   INITIAL_RAG=rag_combined DATA_DIR=data/new_dataset \
+#   exec venv/bin/uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000
+initial_rag = os.getenv("INITIAL_RAG", "rag_cache")
+data_dir = os.getenv("DATA_DIR", "data/DavidSnyder")
+
 
 llama_model_path = "llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
 mistral_model_path ="llm_models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
 faiss_index_path = initial_rag + "/faiss.index"
 metadata_path = initial_rag + "/metadata.pkl"
-data_dir = "data/DavidSnyder"
 q_and_a_dir = "data/qanda"
 
 MAX_TOKENS = 512
