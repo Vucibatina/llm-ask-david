@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask David</title>
   <style>
+    #micBtn {
+  margin-left: 10px;
+  font-size: 1.2rem;
+  padding: 8px 12px;
+}
+
+
     body {
       font-family: Arial, sans-serif;
       max-width: 800px;
@@ -78,7 +85,11 @@
   exact video moments where the answers came from.
 </p>
 <textarea id="question" placeholder="Enter your question here..."></textarea>
+
 <button onclick="askDavid()">Ask</button>
+<button id="micBtn" title="Click to speak 🎤">🎤</button>
+
+
 <div id="timer"></div>
 
 <div id="response" class="response" style="display: none;"></div>
@@ -89,6 +100,44 @@
 
 
 <script>
+
+const micBtn = document.getElementById('micBtn');
+const questionBox = document.getElementById('question');
+
+let recognition;
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  micBtn.addEventListener('click', () => {
+    recognition.start();
+    micBtn.innerText = '🎙️ Listening...';
+  });
+
+  recognition.onresult = (event) => {
+    const speechToText = event.results[0][0].transcript;
+    questionBox.value = speechToText;
+    micBtn.innerText = '🎤';
+  };
+
+  recognition.onerror = (event) => {
+    alert('Error: ' + event.error);
+    micBtn.innerText = '🎤';
+  };
+
+  recognition.onend = () => {
+    micBtn.innerText = '🎤';
+  };
+} else {
+  micBtn.disabled = true;
+  micBtn.title = "Speech recognition not supported in this browser.";
+}
+
+
+
   let timerInterval;
   let secondsElapsed = 0;
 
