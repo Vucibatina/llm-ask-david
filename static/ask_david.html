@@ -84,27 +84,21 @@
 <div id="response" class="response" style="display: none;"></div>
 <div id="sources" class="sources"></div>
 
+
+
+
+
 <script>
   let timerInterval;
   let secondsElapsed = 0;
 
-  // Check authentication when the page loads
   window.addEventListener('DOMContentLoaded', async () => {
     try {
-      const response = await fetch('/me', {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        // If not authenticated, redirect to login page
-        window.location.href = '/';
-        return;
-      }
-      
+      const response = await fetch('/me', { credentials: 'include' });
+      if (!response.ok) return window.location.href = '/';
       const data = await response.json();
       document.getElementById('username').textContent = data.username;
     } catch (error) {
-      console.error('Authentication check failed:', error);
       window.location.href = '/';
     }
   });
@@ -112,7 +106,7 @@
   function startTimer() {
     const timerDiv = document.getElementById('timer');
     secondsElapsed = 0;
-    timerDiv.innerText = "⏳ Waiting... 0s";
+    timerDiv.innerText = "⏳ Working on producing your answer... 0s";
     timerInterval = setInterval(() => {
       secondsElapsed++;
       timerDiv.innerText = `⏳ Working on producing your answer... ${secondsElapsed}s`;
@@ -125,10 +119,18 @@
   }
 
   function formatAnswer(text) {
-    return text
-      .replace(/(\d+\.)/g, '\n\n$1')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return text.replace(/(\d+\.)/g, '\n\n$1').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function showSummary(summary) {
+    const modal = document.getElementById("summaryModal");
+    const content = document.getElementById("summaryContent");
+    content.innerText = summary || "No summary available.";
+    modal.style.display = "block";
+  }
+
+  function closeModal() {
+    document.getElementById("summaryModal").style.display = "none";
   }
 
   async function askDavid() {
@@ -147,21 +149,16 @@
     try {
       const res = await fetch("/ask", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
-        credentials: 'include'  // Important for including cookies with the request
+        credentials: 'include'
       });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText);
-      }
+      if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
       stopTimer();
-      
+
       responseDiv.style.display = 'block';
       responseDiv.innerHTML = `<strong>Answer:</strong><br>${formatAnswer(data.answer)}`;
 
@@ -173,7 +170,7 @@
         sourcesDiv.appendChild(heading);
       }
 
-      data.sources.forEach(([link, snippet, score]) => {
+      data.sources.forEach(([link, snippet, score, summary]) => {
         const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
         const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
 
@@ -184,46 +181,45 @@
             <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
             <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
           </div>
-          <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>
+          <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>          
+          ${isYouTube && summary ? `<button class="summary-btn" data-summary="${summary.replace(/"/g, "&quot;")}" style="margin-top: 10px;">Video Summary</button>` : ''}
         `;
         sourcesDiv.appendChild(sourceEl);
       });
-      console.log("Question submitted:", question);
+
     } catch (err) {
       stopTimer();
-      
-      // Check if it's an authentication error
       if (err.message.includes('401') || err.message.includes('unauthorized')) {
         alert("Your session has expired. Please log in again.");
         window.location.href = '/';
-        return;
+      } else {
+        alert("Request failed: " + err.message);
       }
-      
-      alert("Request failed: " + err.message);
-      console.error("Fetch error:", err);
     }
   }
 
   async function logout() {
-    try {
-      await fetch('/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Logout failed:', error);
-      alert('Logout failed. Please try again.');
-    }
+    await fetch('/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/';
   }
-  
-  // Support for Enter key to submit
+
   document.getElementById('question').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && e.ctrlKey) {
-      askDavid();
+    if (e.key === 'Enter' && e.ctrlKey) askDavid();
+  });
+
+  // Handle summary buttons (event delegation)
+  document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("summary-btn")) {
+      const summary = e.target.getAttribute("data-summary");
+      showSummary(summary);
     }
   });
+
+
 </script>
+
+
+
 
 <footer style="text-align: center; margin-top: 50px; font-size: 0.9rem; color: #666;">
   <div>Teachings by
@@ -238,6 +234,17 @@
     </a>
   </div>
 </footer>
+
+<!-- Summary Modal -->
+<div id="summaryModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999;">
+  <div style="background:white; max-width:600px; margin:10% auto; padding:20px; border-radius:8px; position:relative;">
+    <h3>Video Summary</h3>
+    <p id="summaryContent" style="white-space:pre-wrap; line-height:1.5;"></p>
+    <button onclick="closeModal()" style="position:absolute; top:10px; right:10px;">Close</button>
+  </div>
+</div>
+
+
 </body>
 </html>
 
