@@ -60,7 +60,15 @@ USERS = {
         "disabled": False
     }, 
     "aca": {
-        "password": hashlib.sha256("faca".encode()).hexdigest(),
+        "password": hashlib.sha256("facaMatijasevic".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "mehrdad": {
+        "password": hashlib.sha256("googleSale".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "mike": {
+        "password": hashlib.sha256("stankovic".encode()).hexdigest(),
         "disabled": False
     }, 
     "vuk": {
