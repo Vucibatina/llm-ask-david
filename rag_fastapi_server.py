@@ -164,9 +164,18 @@ class LoginResponse(BaseModel):
 class QuestionRequest(BaseModel):
     question: str
 
+
+class SourceEntry(BaseModel):
+    link: str
+    matched_text: str
+    score: float
+    summary: str
+    author: str
+
 class QuestionResponse(BaseModel):
     answer: str
-    sources: List[Tuple[str, str, float, str, str]]
+    sources: List[SourceEntry]
+
 
 # === AUTH FUNCTIONS ===
 def verify_password(plain_password, hashed_password):
@@ -292,7 +301,6 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
 
     original_words = clean_text(full_text).split()
 
-
     for candidate in progressive_shrink(original_words, min_words=min_words):
         match_pos = full_cleaned_text.find(candidate)
         if match_pos != -1:
@@ -312,7 +320,9 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
     print("Looked for location for video:  https://www.youtube.com/watch?v=" + video_id)
     print("Looked for location of text: " + str(original_words))
 
-    return "No match found at any length.", None, "", 0.0, video_summary
+    # return "No match found at any length.", None, "", 0.0, video_summary
+    return f"https://www.youtube.com/watch?v={video_id}", None, str(clean_text), 0, video_summary 
+
 
 # === ROUTES ===
 @app.post("/login")
@@ -395,7 +405,14 @@ async def ask_question(
             meta = entry.get('metadata', {})
             # original_link = meta.get("Video URL", "N/A")
             original_link = meta.get("Video URL")
-            author = meta.get("Author", "Unknown Author")
+            # author = meta.get("Author", "Unknown Author")
+            author = (
+                meta.get("Author")
+                or meta.get("Channel Name")
+                or meta.get("channel_name")
+                or "Unknown Author"
+            )
+                        
             if not original_link or original_link == "N/A":
                 original_link = entry['file']
             # Remove ".txt" if it ends with it
@@ -407,8 +424,16 @@ async def ask_question(
 
             # print("VIDEO SUMMARY: " + video_summary)
 
+
             if file not in seen_files:
-                source_entries.append((updated_link, matched_text, float(D[0][idx]), video_summary, author))
+                # source_entries.append((updated_link, matched_text, float(D[0][idx]), video_summary, author))
+                source_entries.append({
+                    "link": updated_link,
+                    "matched_text": matched_text,
+                    "score": float(D[0][idx]),
+                    "summary": video_summary,
+                    "author": author
+                })     
                 seen_files.add(file)
 
             retrieved_chunks.append(chunk_text)
@@ -449,7 +474,8 @@ async def ask_question(
     except Exception as e:
         print(f"⚠️ Error saving Q&A file: {e}")
 
-    return QuestionResponse(answer=answer, sources=source_entries)
+    # return QuestionResponse(answer=answer, sources=source_entries)
+    return {"answer": answer, "sources": source_entries}
 
 # === STATIC FILES ===
 # Serve static files, but protect with authentication check

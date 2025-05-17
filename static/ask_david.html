@@ -264,22 +264,30 @@
           sourcesDiv.appendChild(heading);
         }
 
-        data.sources.forEach(([link, snippet, score, summary]) => {
+        data.sources.forEach((source) => {
+          const link = source.link;
+          const snippet = source.matched_text;
+          const score = source.score;
+          const summary = source.summary;
+          const author = source.author;
+
           const isYouTube = link.includes("youtube.com") || link.includes("youtu.be");
           const displaySnippet = isYouTube ? `..... ${snippet} .....` : snippet;
 
           const sourceEl = document.createElement('div');
           sourceEl.classList.add('source');
           sourceEl.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 5px;">Author: ${author || 'Unknown'}</div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <a class="link" href="${link}" target="_blank" style="flex-grow: 1;">${link}</a>
               <span style="margin-left: 10px; white-space: nowrap; color: gray; font-size: 0.9rem;">(score: ${score.toFixed(2)})</span>
             </div>
-            <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>          
-            ${isYouTube && summary ? `<button class="summary-btn" data-summary="${summary.replace(/"/g, "&quot;")}" style="margin-top: 10px;">Video Summary</button>` : ''}
-          `;
+            <div style="text-align: justify; margin-top: 8px;">${displaySnippet}</div>
+            ${isYouTube && summary ? `<button class="summary-btn" data-summary="${summary.replace(/"/g, "&quot;")}" style="margin-top: 10px;">Video Summary</button>` : ''}`;
+          
           sourcesDiv.appendChild(sourceEl);
         });
+
 
       } catch (err) {
         stopTimer();
