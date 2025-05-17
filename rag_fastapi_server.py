@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 #   INITIAL_RAG=rag_combined DATA_DIR=data/new_dataset \
 #   exec venv/bin/uvicorn rag_fastapi_server:app --host 0.0.0.0 --port 8000
 initial_rag = os.getenv("INITIAL_RAG", "rag_cache")
-data_dir = os.getenv("DATA_DIR", "data/DavidSnyder")
+data_dir = os.getenv("DATA_DIR", "data/full")
 
 
 llama_model_path = "llm_models/llama-2-7b-chat-hf-q4_k_m.gguf"
@@ -57,6 +57,10 @@ USERS = {
     },
     "ana": {
         "password": hashlib.sha256("sestra".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "aca": {
+        "password": hashlib.sha256("faca".encode()).hexdigest(),
         "disabled": False
     }, 
     "vuk": {
@@ -162,7 +166,7 @@ class QuestionRequest(BaseModel):
 
 class QuestionResponse(BaseModel):
     answer: str
-    sources: List[Tuple[str, str, float, str]]
+    sources: List[Tuple[str, str, float, str, str]]
 
 # === AUTH FUNCTIONS ===
 def verify_password(plain_password, hashed_password):
@@ -246,40 +250,10 @@ def progressive_shrink(words, min_words=5):
     if len(words) >= min_words:
         yield " ".join(words)
 
-def find_youtube_timestamp_exact_progressive_OLD(video_input, full_text, min_words=5):
-    video_id = extract_video_id(video_input)
-    local_path = os.path.join(data_dir, f"{video_id}_raw.json")
-
-    # Try to load from local JSON
-    try:
-        with open(local_path, "r", encoding="utf-8") as f:
-            transcript = json.load(f)
-    except Exception as e:
-        return f"Transcript not available locally: {e}", None, "", 0.0
-
-    # Build cleaned full transcript string and map position to time
-    full_cleaned_text = ""
-    char_pos_to_start_time = {}
-
-    for entry in transcript:
-        raw_text = entry['text'].replace('\n', ' ')
-        cleaned_text = clean_text(raw_text)
-        start_char = len(full_cleaned_text)
-        full_cleaned_text += cleaned_text + " "
-
-        for i in range(len(cleaned_text)):
-            char_pos_to_start_time[start_char + i] = entry['start']
-
-    original_words = clean_text(full_text).split()
-
-    for candidate in progressive_shrink(original_words, min_words=min_words):
-        match_pos = full_cleaned_text.find(candidate)
-        if match_pos != -1:
-            match_start_time = char_pos_to_start_time.get(match_pos, 0)
-            link = f"https://www.youtube.com/watch?v={video_id}&t={int(match_start_time)}"
-            return link, int(match_start_time), candidate, 1.0
-
-    return "No match found at any length.", None, "", 0.0
+def progressive_shrink_from_front(words, min_words=5):
+    while len(words) >= min_words:
+        yield " ".join(words)
+        words = words[1:]
 
 def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5):
     print("RUNNING NEW find_youtube_timestamp_exact_progressive with SUMMARY ON " + video_input)
@@ -293,6 +267,7 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
             summary_json = json.load(f)
             video_summary = summary_json.get("summary", "")
     except Exception:
+        print("Cannot find video summary for " + video_input)
         video_summary = ""
 
     # Try to load from local transcript JSON
@@ -317,12 +292,25 @@ def find_youtube_timestamp_exact_progressive(video_input, full_text, min_words=5
 
     original_words = clean_text(full_text).split()
 
+
     for candidate in progressive_shrink(original_words, min_words=min_words):
         match_pos = full_cleaned_text.find(candidate)
         if match_pos != -1:
             match_start_time = char_pos_to_start_time.get(match_pos, 0)
             link = f"https://www.youtube.com/watch?v={video_id}&t={int(match_start_time)}"
             return link, int(match_start_time), candidate, 1.0, video_summary
+
+
+    ### remove the words from front, if removing them from back did not work 
+    for candidate in progressive_shrink_from_front(original_words, min_words=min_words):
+        match_pos = full_cleaned_text.find(candidate)
+        if match_pos != -1:
+            match_start_time = char_pos_to_start_time.get(match_pos, 0)
+            link = f"https://www.youtube.com/watch?v={video_id}&t={int(match_start_time)}"
+            return link, int(match_start_time), candidate, 1.0, video_summary
+
+    print("Looked for location for video:  https://www.youtube.com/watch?v=" + video_id)
+    print("Looked for location of text: " + str(original_words))
 
     return "No match found at any length.", None, "", 0.0, video_summary
 
@@ -407,18 +395,20 @@ async def ask_question(
             meta = entry.get('metadata', {})
             # original_link = meta.get("Video URL", "N/A")
             original_link = meta.get("Video URL")
+            author = meta.get("Author", "Unknown Author")
             if not original_link or original_link == "N/A":
                 original_link = entry['file']
             # Remove ".txt" if it ends with it
             if original_link.endswith(".txt"):
                 original_link = original_link[:-4]
 
+            print("EXAMINING VIDEO: " + original_link)
             updated_link, timestamp, matched_text, score, video_summary = find_youtube_timestamp_exact_progressive(original_link, chunk_text)
 
-            print("VIDEO SUMMARY: " + video_summary)
+            # print("VIDEO SUMMARY: " + video_summary)
 
             if file not in seen_files:
-                source_entries.append((updated_link, matched_text, float(D[0][idx]), video_summary))
+                source_entries.append((updated_link, matched_text, float(D[0][idx]), video_summary, author))
                 seen_files.add(file)
 
             retrieved_chunks.append(chunk_text)
