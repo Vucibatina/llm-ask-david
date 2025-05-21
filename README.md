@@ -8,6 +8,12 @@ The system runs entirely on your local machine and uses:
 - **YouTube transcripts** to locate the source of answers
 - **A lightweight frontend** for users to interact via the browser
 
+--
+
+## Making sure GPU is used on EC2
+make sure you run this command before you start the server 
+`CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --force-reinstall --no-cache-dir`
+
 ---
 ## Running
 To make sure it runs all the time on the server:
