@@ -55,14 +55,58 @@ USERS = {
         "password": hashlib.sha256("theLightMan".encode()).hexdigest(),
         "disabled": False
     },
+    "third": {
+        "password": hashlib.sha256("friday".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "ali": {
+        "password": hashlib.sha256("theAli".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "beko": {
+        "password": hashlib.sha256("baterijas".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "nemanja": {
+        "password": hashlib.sha256("aloPetrovicu".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "aca": {
+        "password": hashlib.sha256("kgvBoss".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "misha": {
+        "password": hashlib.sha256("kgvMourino".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "dimitrije": {
+        "password": hashlib.sha256("dekijev".encode()).hexdigest(),
+        "disabled": False
+    }, 
+    "marko": {
+        "password": hashlib.sha256("dimovic".encode()).hexdigest(),
+        "disabled": False
+    },
+    "dimcha": {
+        "password": hashlib.sha256("globus".encode()).hexdigest(),
+        "disabled": False
+    },  
     "ana": {
         "password": hashlib.sha256("sestra".encode()).hexdigest(),
         "disabled": False
     }, 
-    "aca": {
-        "password": hashlib.sha256("facaMatijasevic".encode()).hexdigest(),
+    "boba": {
+        "password": hashlib.sha256("drugaSrbija".encode()).hexdigest(),
+        "disabled": False
+    },
+    "rajko": {
+        "password": hashlib.sha256("brdo".encode()).hexdigest(),
         "disabled": False
     }, 
+    "zilavi": {
+        "password": hashlib.sha256("partner".encode()).hexdigest(),
+        "disabled": False
+    },  
     "mehrdad": {
         "password": hashlib.sha256("googleSale".encode()).hexdigest(),
         "disabled": False
@@ -70,7 +114,11 @@ USERS = {
     "mike": {
         "password": hashlib.sha256("stankovic".encode()).hexdigest(),
         "disabled": False
-    }, 
+    },
+    "milan": {
+        "password": hashlib.sha256("wells".encode()).hexdigest(),
+        "disabled": False
+    },  
     "vuk": {
         "password": hashlib.sha256("faca".encode()).hexdigest(),
         "disabled": False
