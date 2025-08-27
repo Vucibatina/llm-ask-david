@@ -16,6 +16,10 @@ make sure you run this command before you start the server
 
 ### Installation
 
+**Create and use the python environment:**
+```bash
+source .venv/bin/activate
+
 **CPU-only (works everywhere):**
 ```bash
 pip install -r requirements.txt
@@ -26,6 +30,11 @@ pip install -r requirements.txt
 ```bash
 pip install -r requirements-mac-metal.txt
  
+**Set environment variables :**
+export YT_API_KEY="YOUR_YOUTUBE_DATA_API_KEY"
+export SUMMARY_MODEL_PATH="llm_models/Yi-1.5-9B-Chat-Q4_K_M.gguf"
+export N_GPU_LAYERS=40
+
 
 ---
 ## Running
