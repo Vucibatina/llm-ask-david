@@ -1,0 +1,9 @@
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/metal
+fastapi
+uvicorn
+sentence-transformers
+faiss-cpu
+youtube-transcript-api
+llama-cpp-python
+
+

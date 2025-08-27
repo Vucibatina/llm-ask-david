@@ -14,6 +14,19 @@ The system runs entirely on your local machine and uses:
 make sure you run this command before you start the server 
 `CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --force-reinstall --no-cache-dir`
 
+### Installation
+
+**CPU-only (works everywhere):**
+```bash
+pip install -r requirements.txt
+
+### Installation
+
+**Apple Silicon Metal GPU acceleration):**
+```bash
+pip install -r requirements-mac-metal.txt
+ 
+
 ---
 ## Running
 To make sure it runs all the time on the server:
